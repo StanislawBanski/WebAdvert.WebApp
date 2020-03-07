@@ -30,7 +30,7 @@ namespace WebAdvert.Web
             });
 
             services.ConfigureApplicationCookie(options => {
-                options.LoginPath = "Accounts/Login";
+                options.LoginPath = "/Accounts/Login";
             });
 
             services.AddControllersWithViews();
