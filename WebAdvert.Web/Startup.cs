@@ -1,9 +1,15 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Polly;
+using Polly.Extensions.Http;
+using System;
+using System.Net.Http;
 using WebAdvert.Web.Interfaces;
+using WebAdvert.Web.ServiceClients;
 using WebAdvert.Web.Services;
 
 namespace WebAdvert.Web
@@ -35,9 +41,26 @@ namespace WebAdvert.Web
                 options.LoginPath = "/Accounts/Login";
             });
 
+            services.AddAutoMapper(typeof(Startup));
+
             services.AddTransient<IFileUploader, S3FileUploader>();
 
+            services.AddHttpClient<IAdvertApiClient, AdvertApiClient>()
+                .AddPolicyHandler(GetRetryPolicy())
+                .AddPolicyHandler(GetCircuitBreakerPolicy());
+
             services.AddControllersWithViews();
+        }
+
+        private IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+        {
+            return HttpPolicyExtensions.HandleTransientHttpError().CircuitBreakerAsync(3, TimeSpan.FromSeconds(30));
+        }
+
+        private IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+        {
+            return HttpPolicyExtensions.HandleTransientHttpError().OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.NotFound)
+                .WaitAndRetryAsync(5, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
