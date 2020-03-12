@@ -1,31 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using WebAdvert.Web.Models;
+using WebAdvert.Web.Models.Home;
+using WebAdvert.Web.ServiceClients;
 
 namespace WebAdvert.Web.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly ILogger<HomeController> _logger;
+        public ISearchApiClient SearchApiClient { get; }
+        public IMapper Mapper { get; }
+        public IAdvertApiClient ApiClient { get; }
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ISearchApiClient searchApiClient, IMapper mapper, IAdvertApiClient apiClient)
         {
-            _logger = logger;
+            SearchApiClient = searchApiClient;
+            Mapper = mapper;
+            ApiClient = apiClient;
         }
 
-        public IActionResult Index()
+        [Authorize]
+        [ResponseCache(Duration = 60)]
+        public async Task<IActionResult> Index()
         {
-            return View();
+            var allAds = await ApiClient.GetAllAsync().ConfigureAwait(false);
+            var allViewModels = allAds.Select(x => Mapper.Map<IndexViewModel>(x));
+
+            return View(allViewModels);
         }
 
-        public IActionResult Privacy()
+        [HttpPost]
+        public async Task<IActionResult> Search(string keyword)
         {
-            return View();
+            var viewModel = new List<SearchViewModel>();
+
+            var searchResult = await SearchApiClient.Search(keyword).ConfigureAwait(false);
+            searchResult.ForEach(advertDoc =>
+            {
+                var viewModelItem = Mapper.Map<SearchViewModel>(advertDoc);
+                viewModel.Add(viewModelItem);
+            });
+
+            return View("Search", viewModel);
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -33,5 +54,6 @@ namespace WebAdvert.Web.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+
     }
 }

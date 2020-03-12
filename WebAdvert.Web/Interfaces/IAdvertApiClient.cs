@@ -1,5 +1,5 @@
-﻿using System.Threading.Tasks;
-using AdvertApi.Models;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using WebAdvert.Web.ServiceClients.AdvertApi;
 
 namespace WebAdvert.Web.ServiceClients
@@ -8,7 +8,7 @@ namespace WebAdvert.Web.ServiceClients
     {
         Task<AdvertResponse> CreateAsync(CreateAdvertModel model);
         Task<bool> ConfirmAsync(ConfirmAdvertRequest model);
-        //Task<List<Advertisement>> GetAllAsync();
-        //Task<Advertisement> GetAsync(string advertId);
+        Task<List<Advertisement>> GetAllAsync();
+        Task<Advertisement> GetAsync(string advertId);
     }
 }

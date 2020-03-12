@@ -3,6 +3,8 @@ using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -12,9 +14,9 @@ namespace WebAdvert.Web.ServiceClients
 {
     public class AdvertApiClient : IAdvertApiClient
     {
-        private readonly IConfiguration configuration;
         private readonly HttpClient client;
         private readonly IMapper mapper;
+        private readonly string baseAddress;
 
         public AdvertApiClient(
             IConfiguration configuration,
@@ -22,10 +24,9 @@ namespace WebAdvert.Web.ServiceClients
             IMapper mapper
         )
         {
-            this.configuration = configuration;
             this.client = client;
             this.mapper = mapper;
-            client.BaseAddress = new Uri(configuration.GetSection("AdvertApi").GetValue<string>("BaseUrl"));
+            this.baseAddress = configuration.GetSection("AdvertApi").GetValue<string>("BaseUrl");
         }
 
         public async Task<AdvertResponse> CreateAsync(CreateAdvertModel model)
@@ -33,7 +34,7 @@ namespace WebAdvert.Web.ServiceClients
             var advertApiModel = mapper.Map<CreateAdvertModel>(model);
             var jsonModel = JsonConvert.SerializeObject(advertApiModel);
 
-            var response = await client.PostAsync(client.BaseAddress + "Create", 
+            var response = await client.PostAsync(new Uri($"{baseAddress}/Create"), 
                 new StringContent(jsonModel, Encoding.UTF8, "application/json"));
 
             var jsonResponse = await response.Content.ReadAsStringAsync();
@@ -49,10 +50,24 @@ namespace WebAdvert.Web.ServiceClients
             var confirmAdvertApiModel = mapper.Map<ConfirmAdvertModel>(model);
             var jsonModel = JsonConvert.SerializeObject(confirmAdvertApiModel);
 
-            var response = await client.PutAsync(client.BaseAddress + "Confirm", 
+            var response = await client.PutAsync(new Uri($"{baseAddress}/Confirm"), 
                 new StringContent(jsonModel, Encoding.UTF8, "application/json"));
 
             return response.StatusCode == System.Net.HttpStatusCode.OK;
+        }
+
+        public async Task<List<Advertisement>> GetAllAsync()
+        {
+            var apiCallResponse = await client.GetAsync(new Uri($"{baseAddress}/all")).ConfigureAwait(false);
+            var allAdvertModels = await apiCallResponse.Content.ReadAsAsync<List<AdvertModel>>().ConfigureAwait(false);
+            return allAdvertModels.Select(x => mapper.Map<Advertisement>(x)).ToList();
+        }
+
+        public async Task<Advertisement> GetAsync(string advertId)
+        {
+            var apiCallResponse = await client.GetAsync(new Uri($"{baseAddress}/{advertId}")).ConfigureAwait(false);
+            var fullAdvert = await apiCallResponse.Content.ReadAsAsync<AdvertModel>().ConfigureAwait(false);
+            return mapper.Map<Advertisement>(fullAdvert);
         }
     }
 }
